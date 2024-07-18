@@ -14,9 +14,9 @@ class FirestoreException(Exception):
 
 
 class FIREBASE_GLOBAL_VAR:
-    FIRESTORE_PATH = 'https://firestore.googleapis.com/v1/projects/pillpal-e72e9/databases/(default)/documents/'
+    FIRESTORE_PATH = 'https://firestore.googleapis.com/v1/projects/<project_id>/databases/(default)/documents/'
     PROJECT_ID = "pillpal-fb"
-    API="AIzaSyDqdYPTKnCfT-11CvdLihOjcygBkhnc6tU"
+    API="<WEB API key in Project Settings>"
     UID=None
     ACCESS_TOKEN = None
 
