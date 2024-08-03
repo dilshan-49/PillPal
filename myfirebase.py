@@ -15,7 +15,7 @@ class FirestoreException(Exception):
 
 class FIREBASE_GLOBAL_VAR:
     FIRESTORE_PATH = 'https://firestore.googleapis.com/v1/projects/<project_id>/databases/(default)/documents/'
-    PROJECT_ID = "pillpal-fb"
+    PROJECT_ID = "<project_id>"
     API="<WEB API key in Project Settings>"
     UID=None
     ACCESS_TOKEN = None
@@ -57,10 +57,10 @@ def create(doc, path=None):
     data=process_doc(doc)
     return INTERNAL.create(data, url)
     
-def get(path):
+def get(path): #path=slot_name
     url=FIREBASE_GLOBAL_VAR.FIRESTORE_PATH+path
     raw_doc=INTERNAL.get(url)
-    data=parse_doc(raw_doc)
+    data=parse_doc(ujson.loads(raw_doc))
     del raw_doc
     gc.collect()
     return data
