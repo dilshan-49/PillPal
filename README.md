@@ -6,4 +6,5 @@
  main_func.py - other functions used
 
 firebase_auth - https://github.com/WoolDoughnut310/micropython-firebase-auth
+
 lcd - https://github.com/dhylands/python_lcd
