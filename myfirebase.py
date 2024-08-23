@@ -14,23 +14,20 @@ class FirestoreException(Exception):
 
 
 class FIREBASE_GLOBAL_VAR:
-    FIRESTORE_PATH = 'https://firestore.googleapis.com/v1/projects/<project_id>/databases/(default)/documents/'
-    PROJECT_ID = "<project_id>"
-    API="<WEB API key in Project Settings>"
-    UID=None
+    FIRESTORE_PATH = 'https://firestore.googleapis.com/v1/projects/sign-in-eab7e/databases/(default)/documents/'
+    PROJECT_ID = "sign-in-eab7e"
+    API="AIzaSyCnfut4uNf9BhoVTtxTkT6cb8k57UXwzl8"
+    UID="TTm4RVGLbFYFDYmWZHWKD5aSz1q2"
     ACCESS_TOKEN = None
 
 
 class INTERNAL:
-    def get(url):
-        headers = {"Authorization": "Bearer " + FIREBASE_GLOBAL_VAR.ACCESS_TOKEN, "Content-Type": "application/json"}
-        response=urequests.get(url,headers=headers)
-        return(response.text)
-        
-    def create(DATA,url):
-        headers = {"Authorization":"Bearer " + FIREBASE_GLOBAL_VAR.ACCESS_TOKEN}
+    
+    def create(DATA,path):
+        url = FIREBASE_GLOBAL_VAR.FIRESTORE_PATH+'reports/'+FIREBASE_GLOBAL_VAR.UID+"/"+path
+        headers = {"Authorization":"Bearer " + FIREBASE_GLOBAL_VAR.ACCESS_TOKEN,"Content-Type": "application/json"}
         gc.collect()
-        response=urequests.post(url , headers=headers, data=DATA)
+        response=urequests.patch(url=url , headers=headers, data=DATA)
         print(response.text)
         del url,headers,DATA
         if response.status_code < 200 or response.status_code > 299:
@@ -39,9 +36,14 @@ class INTERNAL:
         gc.collect()
         
     def update(url,headers,data):
-        response=urequests.patch(url,headers=headers,data=json_data)
+        print(data)
+        response=urequests.patch(url,headers=headers,data=data)
         print(response.text)
         del response
+        gc.collect()
+
+
+
 
 def set_access_token(token):
     FIREBASE_GLOBAL_VAR.ACCESS_TOKEN = token
@@ -50,54 +52,30 @@ def set_uid(uid):
     FIREBASE_GLOBAL_VAR.UID = uid    
 
 
-def create(doc, path=None):
-    url = FIREBASE_GLOBAL_VAR.FIRESTORE_PATH
-    if path:
-        url=url+path
-    data=process_doc(doc)
-    return INTERNAL.create(data, url)
-    
-def get(path): #path=slot_name
-    url=FIREBASE_GLOBAL_VAR.FIRESTORE_PATH+path
-    raw_doc=INTERNAL.get(url)
-    data=parse_doc(ujson.loads(raw_doc))
-    del raw_doc
+def create(data, path=""):
     gc.collect()
-    return data
+    return INTERNAL.create(data, path)
     
-def update(doc,fields):
-    print('Updating '+slot_name)
-    url=FIREBASE_GLOBAL_VAR.FIRESTORE_PATH+slot_name+'/'+FIREBASE_GLOBAL_VAR.UID+"?updateMask.fieldPaths="+fields
+def get(slot_name):
+    url=FIREBASE_GLOBAL_VAR.FIRESTORE_PATH+slot_name+'/'+FIREBASE_GLOBAL_VAR.UID
     headers = {"Authorization": "Bearer " + FIREBASE_GLOBAL_VAR.ACCESS_TOKEN, "Content-Type": "application/json"}
-    data=process_doc(doc)
+    response=urequests.get(url,headers=headers)
+    print(response.text)
+    return parse_doc(ujson.loads(response.text),slot_name)
+    
+def update(slot_name,count):
+    print('Updating '+slot_name)
+    url=FIREBASE_GLOBAL_VAR.FIRESTORE_PATH+slot_name+'/'+FIREBASE_GLOBAL_VAR.UID+"?updateMask.fieldPaths=pill_count"
+    headers = {"Authorization": "Bearer " + FIREBASE_GLOBAL_VAR.ACCESS_TOKEN, "Content-Type": "application/json"}
+    data=ujson.dumps({"fields":{"pill_count":{"integerValue":str(count)}}})
     INTERNAL.update(url,headers,data)
 
-def parse_doc(doc):
-    fields=doc.get('fields',{})
+def parse_doc(doc,slot_name):
+    
+    data=doc['fields']
     parsed_doc={}
-    for field,value in fields.items():
+    for field,value in data.items():
         for type,val in value.items():
             parsed_doc[field]=val
+    del doc
     return parsed_doc
-
-
-def process_doc(doc):
-    '''Converting Python Dictionary to Json object with the format required by REST API'''
-    #Only Basic object types are defined here
-    formatted_data = {"fields": {}}
-    for key, value in data.items():
-        if isinstance(value, str):
-            formatted_data["fields"][key] = {"stringValue": value}
-        elif isinstance(value, bool):
-            formatted_data["fields"][key] = {"booleanValue": value}
-        elif isinstance(value, int):
-            formatted_data["fields"][key] = {"integerValue": value}
-        elif isinstance(value, float):
-            formatted_data["fields"][key] = {"doubleValue": value}
-        
-        #add more types as required
-
-        else:
-            raise ValueError(f"Type of value for {key} is not supported.")
-    return ujson.dumps(formatted_data) 
-    
