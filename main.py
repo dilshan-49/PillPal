@@ -1,5 +1,5 @@
 ##########Importing required Modules###############
-from machine import Pin,deepsleep,soft_reset
+from machine import Pin,deepsleep,soft_reset,wake_reason
 from esp32 import wake_on_ext0,wake_on_ext1,WAKEUP_ANY_HIGH
 from utime import localtime
 import gc
@@ -10,11 +10,16 @@ from main_func import *
 update_button=Pin(34, Pin.IN, Pin.PULL_DOWN)
 wake_on_ext1((update_button,),WAKEUP_ANY_HIGH)
 update_button.irq(trigger=Pin.IRQ_RISING, handler=put_to_deepsleep)
-
+release=False
+if wake_reason()==2:
+    release=True
+############################################
+def pressed(pin):
+    global release
+    release=True
 #########Initializing Display ############
 lcd.clear()
 lcd.putstr("Hello!")
-print('Hello')
 ##########################################
 with open('USER_CRED.txt', 'r') as f:
     credetials=ujson.load(f)
@@ -24,10 +29,10 @@ with open('USER_CRED.txt', 'r') as f:
     mobile=credetials['mobile']
 
 ##########Setiing up Slots##########
-S1=Container('Slot 1',user_button,lcd,m1o,m1c,motor_button)
-S2=Container('Slot 2',user_button,lcd,m2o,m2c,motor_button)
-S3=Container('Slot 3',user_button,lcd,m3o,m3c,motor_button)
-S4=Container('Slot 4',user_button,lcd,m4o,m4c,motor_button)
+S1=Container('slot1',user_button,lcd,m1o,m1c,motor_button)
+S2=Container('slot2',user_button,lcd,m2o,m2c,motor_button)
+S3=Container('slot3',user_button,lcd,m3o,m3c,motor_button)
+S4=Container('slot4',user_button,lcd,m4o,m4c,motor_button)
 
 ##################################################
 now=localtime()[3:5]
@@ -37,10 +42,11 @@ try:
     # Try to open the file
     with open('data.txt', 'r') as f:
         data=ujson.load(f)
-        print(data)
-    for name,val in data.items:
-        msg=''
-        if val["pill_count"]<5:
+    msg=''
+    for name,val in data.items():        
+        if name=="times":
+            continue
+        if int(val["pill_count"])<5:
             msg=val["pill_name"]+', '
     if msg:
         msg+='need to be refilled'
@@ -49,19 +55,24 @@ try:
             
         
 except OSError:
-    lcd.putstr('Press Update button to Update data')
-    print('Please Update Data')
-    update_button=Button(34,'update')
+    lcd.putstr('Update Required.\nPress Update button to continue')
     while True:
-        if update_button.is_pressed():
-            deepsleep()
-        sleep(1)
+        sleep(10)
+
 
 ##################################################
 S1.update(data['slot1'])
 S2.update(data['slot2'])
 S3.update(data['slot3'])
 S4.update(data['slot4'])
+times=data['times']
+
+morning_1=tuple(map(int, times['morning'].split(":")))
+morning_2=(morning_1[0]+1,morning_1[1])
+afternoon_1=tuple(map(int, times['afternoon'].split(":")))
+afternoon_2=(afternoon_1[0]+1,afternoon_1[1])
+night_1=tuple(map(int, times['night'].split(":")))
+night_2=(night_1[0]+1,night_1[1])
 
 while True:
     now=localtime()[3:5]
@@ -82,7 +93,7 @@ while True:
         print(pills,'Pills')
         del pills
         
-        if user_button.is_pressed():
+        if release:
             S1.release(time_period)
             S2.release(time_period)
             S3.release(time_period)
@@ -97,8 +108,6 @@ while True:
             with open('data.txt', 'w') as f:
                 ujson.dump(data, f)
                 del data
-        
-
 
             #update database
             now=localtime()
@@ -110,61 +119,73 @@ while True:
                 doc[S2.pill]={"integerValue":S2.morning}
                 doc[S3.pill]={"integerValue":S3.morning}
                 doc[S4.pill]={"integerValue":S4.morning}
+                msg="Morning medication was taken by the patient"
             elif time_period==2:
                 path=date+"/Afternoon"
                 doc[S1.pill]={"integerValue":S1.afternoon}
                 doc[S2.pill]={"integerValue":S2.afternoon}
                 doc[S3.pill]={"integerValue":S3.afternoon}
                 doc[S4.pill]={"integerValue":S4.afternoon}
+                msg="Afternoon medication was taken by the patient"
             else:
                 path=date+"/Night"
                 doc[S1.pill]={"integerValue":S1.night}
                 doc[S2.pill]={"integerValue":S2.night}
                 doc[S3.pill]={"integerValue":S3.night}
                 doc[S4.pill]={"integerValue":S4.night}
+                msg="Night medication was taken by the patient"
                 
             doc["time"]={"timestampValue":date+"T{:02d}:{:02d}:{:02d}Z".format(now[3], now[4], now[5])}
+            doc["taken"]={"booleanValue":True}
             json_doc=ujson.dumps({"fields":doc})
-            del doc
             
-            '''
+ 
         
             if connect_to_wifi():
+                del doc
                 gc.collect()
-                print('Sendind message and Updating data')
-                send_message(mobile,api_key,'hto beth biwwa')
+                lcd.clear()
+                lcd.putstr('Sending message and Updating data')
+                send_message(mobile,api_key,msg)
+                
                 gc.collect()
                 if firebase.FIREBASE_GLOBAL_VAR.ACCESS_TOKEN is None:
                     auth=FirebaseAuth(firebase.FIREBASE_GLOBAL_VAR.API)
                     auth.sign_in(user_email,user_password)
                     access_token=(auth.session.access_token)
                     firebase.FIREBASE_GLOBAL_VAR.UID=auth.user["uid"]
-                    firebase.set_access_token(access_token)
-                firebase.create(json_doc, path)
-                gc.collect()
+                    firebase.set_access_token(access_token)                   
                 for slot in (S1,S2,S3,S4):
                     firebase.update(slot.name,slot.count)
-                
+                    gc.collect()
+                firebase.create(json_doc, path)
                 gc.collect()
-                gc.mem_free()
+                lcd.clear()
+                lcd.putstr("Successfully Updated Data")
+                sleep(3)
+                lcd.clear()
+
+
             else:
-                lcd.putstr('Connection Issue!   Saving records locally.')
+                lcd.clear()
+                lcd.putstr('Connection Issue!\nSaving records locally.')
                 print('Connection Issue Saving records locally')
                 with open('records.txt', 'a+') as f:
-                    ujson.dump(doc,f)
+                    file={path:doc}
+                    ujson.dump(file,f)
                     f.write('\n')
+                del doc
+                del file
 
-            '''
 
 
             ##############################################################
-            with open('records.txt', 'a+') as f:
-                ujson.dump(doc,f)
-                f.write('\n')
+            lcd.putstr("Have a nice day")
+            sleep(3)
             lcd.backlight_off()
             lcd.clear()
             gc.collect()
-            global secs
+            secs=0
             if now<morning_1:
                 secs=(morning_1[0]-now[3])*3600+(morning_1[1]-now[4])*60
                 print('sleep till morning')
@@ -183,29 +204,36 @@ while True:
                 deepsleep(secs*1000)
                 
         elif should_ring:
-            print('ringing')
+            lcd.putstr("Time for medicine")
             ring()
             ring()
-            ring()
-            ####configure loop correctly to ring once 5 minutes for 1 hour
-            for _ in range(60):
-                if user_button.pressed:
+            user_button.irq(trigger=Pin.IRQ_RISING, handler=pressed)
+            for _ in range(150):
+                if release:
+                    user_button.irq(handler=None)
                     print('User pressed.Bre4akng loop')
                     break
-                sleep(5)
+                sleep(2)
         else:
-            print('Times up! Going to sleep')
-            wake_on_ext0(Pin(35,Pin.IN), WAKEUP_ANY_HIGH)
-            lcd.backlight_off()
-            deepsleep(3600*1000)
+            gc.collect()
+            try:
+                if connect_to_wifi():
+                    send_message(mobile,api_key,'Patient seems to have forgot to take medicine')
+            except:
+                pass
+            finally:
+                print('Times up! Going to sleep')
+                wake_on_ext0(user_button, WAKEUP_ANY_HIGH)
+                lcd.backlight_off()
+                lcd.clear()
+                deepsleep(3600*1000)
     
     else:
         lcd.clear()
-        lcd.putstr('No Medicine to take')
-        print('No Medicine to take')
+        lcd.putstr('No Medicine to take.Have a nice day')
         sleep(5)
         lcd.backlight_off()
-        print('Going to sleep. Reboot to interrupt')
+        lcd.clear()
         gc.collect()
         if now<morning_1:
             secs=(morning_1[0]-now[0])*3600+(morning_1[1]-now[1])*60
