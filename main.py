@@ -10,16 +10,21 @@ from main_func import *
 update_button=Pin(34, Pin.IN, Pin.PULL_DOWN)
 wake_on_ext1((update_button,),WAKEUP_ANY_HIGH)
 update_button.irq(trigger=Pin.IRQ_RISING, handler=put_to_deepsleep)
-release=False
+release = False     #True when button was pressed
+forgot = False
+
 if wake_reason()==2:
     release=True
+    
 ############################################
 def pressed(pin):
     global release
     release=True
+    
 #########Initializing Display ############
 lcd.clear()
 lcd.putstr("Hello!")
+
 ##########################################
 with open('USER_CRED.txt', 'r') as f:
     credetials=ujson.load(f)
@@ -35,11 +40,14 @@ S3=Container('slot3',user_button,lcd,m3o,m3c,motor_button)
 S4=Container('slot4',user_button,lcd,m4o,m4c,motor_button)
 
 ##################################################
+
 now=localtime()[3:5]
 print(now)
 lcd.clear()
+
+##################Reading Data####################
+
 try:
-    # Try to open the file
     with open('data.txt', 'r') as f:
         data=ujson.load(f)
     msg=''
@@ -67,12 +75,14 @@ S3.update(data['slot3'])
 S4.update(data['slot4'])
 times=data['times']
 
+
 morning_1=tuple(map(int, times['morning'].split(":")))
 morning_2=(morning_1[0]+1,morning_1[1])
 afternoon_1=tuple(map(int, times['afternoon'].split(":")))
 afternoon_2=(afternoon_1[0]+1,afternoon_1[1])
 night_1=tuple(map(int, times['night'].split(":")))
 night_2=(night_1[0]+1,night_1[1])
+
 
 while True:
     now=localtime()[3:5]
@@ -94,6 +104,7 @@ while True:
         del pills
         
         if release:
+            #release medicine
             S1.release(time_period)
             S2.release(time_period)
             S3.release(time_period)
@@ -190,11 +201,11 @@ while True:
                 secs=(morning_1[0]-now[3])*3600+(morning_1[1]-now[4])*60
                 print('sleep till morning')
                 deepsleep(secs*1000)
-            elif morning_1<=now<afternoon_1:
+            elif now<afternoon_1:
                 print('sleep till afternoon')
                 secs=(afternoon_1[0]-now[3])*3600+(afternoon_1[1]-now[4])*60
                 deepsleep(secs*1000)
-            elif afternoon_1<=now<night_1:
+            elif now<night_1:
                 print('sleep till night')
                 secs=(night_1[0]-now[3])*3600+(night_1[1]-now[4])*60
                 deepsleep(secs*1000)
@@ -214,10 +225,11 @@ while True:
                     print('User pressed.Bre4akng loop')
                     break
                 sleep(2)
+                forgot=True
         else:
             gc.collect()
             try:
-                if connect_to_wifi():
+                if connect_to_wifi() and forgot:
                     send_message(mobile,api_key,'Patient seems to have forgot to take medicine')
             except:
                 pass

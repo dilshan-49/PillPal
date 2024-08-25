@@ -65,29 +65,21 @@ def open_containers():
    
 def close_containers():
     m1c.value(1)
-    sleep(1.7)
+    sleep(1.6)
     m1c.value(0)
-    m1o.value(1)
     sleep(0.3)
-    m1o.value(0)
     m2c.value(1)
-    sleep(1.7)
+    sleep(1.6)
     m2c.value(0)
-    m2o.value(1)
     sleep(0.3)
-    m2o.value(0)
     m3c.value(1)
-    sleep(1.7)
+    sleep(1.6)
     m3c.value(0)
-    m3o.value(1)
     sleep(0.3)
-    m3o.value(0)
     m4c.value(1)
-    sleep(1.7)
+    sleep(1.6)
     m4c.value(0)
-    m4o.value(1)
     sleep(0.3)
-    m4o.value(0)
 
 
 def stop_motor():
