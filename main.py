@@ -10,22 +10,25 @@ from main_func import *
 update_button=Pin(34, Pin.IN, Pin.PULL_DOWN)
 wake_on_ext1((update_button,),WAKEUP_ANY_HIGH)
 update_button.irq(trigger=Pin.IRQ_RISING, handler=put_to_deepsleep)
-release = False     #True when button was pressed
-forgot = False
 
+
+release=False
 if wake_reason()==2:
     release=True
-    
 ############################################
+    
 def pressed(pin):
     global release
+    led.value(1)
     release=True
     
 #########Initializing Display ############
+    
 lcd.clear()
 lcd.putstr("Hello!")
 
 ##########################################
+
 with open('USER_CRED.txt', 'r') as f:
     credetials=ujson.load(f)
     user_email=credetials['email']
@@ -34,6 +37,7 @@ with open('USER_CRED.txt', 'r') as f:
     mobile=credetials['mobile']
 
 ##########Setiing up Slots##########
+    
 S1=Container('slot1',user_button,lcd,m1o,m1c,motor_button)
 S2=Container('slot2',user_button,lcd,m2o,m2c,motor_button)
 S3=Container('slot3',user_button,lcd,m3o,m3c,motor_button)
@@ -41,13 +45,9 @@ S4=Container('slot4',user_button,lcd,m4o,m4c,motor_button)
 
 ##################################################
 
-now=localtime()[3:5]
-print(now)
 lcd.clear()
-
-##################Reading Data####################
-
 try:
+    # Try to open the file
     with open('data.txt', 'r') as f:
         data=ujson.load(f)
     msg=''
@@ -75,14 +75,12 @@ S3.update(data['slot3'])
 S4.update(data['slot4'])
 times=data['times']
 
-
 morning_1=tuple(map(int, times['morning'].split(":")))
 morning_2=(morning_1[0]+1,morning_1[1])
 afternoon_1=tuple(map(int, times['afternoon'].split(":")))
 afternoon_2=(afternoon_1[0]+1,afternoon_1[1])
 night_1=tuple(map(int, times['night'].split(":")))
 night_2=(night_1[0]+1,night_1[1])
-
 
 while True:
     now=localtime()[3:5]
@@ -104,7 +102,9 @@ while True:
         del pills
         
         if release:
-            #release medicine
+            update_button.irq(handler=None)
+            sleep(0.5)
+            lcd.clear()
             S1.release(time_period)
             S2.release(time_period)
             S3.release(time_period)
@@ -174,12 +174,11 @@ while True:
                 lcd.clear()
                 lcd.putstr("Successfully Updated Data")
                 sleep(3)
-                lcd.clear()
 
 
             else:
                 lcd.clear()
-                lcd.putstr('Connection Issue!\nSaving records locally.')
+                lcd.putstr('Connection Issue! \nSaving records locally.')
                 print('Connection Issue Saving records locally')
                 with open('records.txt', 'a+') as f:
                     file={path:doc}
@@ -187,49 +186,48 @@ while True:
                     f.write('\n')
                 del doc
                 del file
-
+                sleep(1)
 
 
             ##############################################################
+            lcd.clear()
             lcd.putstr("Have a nice day")
             sleep(3)
             lcd.backlight_off()
             lcd.clear()
             gc.collect()
             secs=0
+            now=localtime()[3:5]
             if now<morning_1:
-                secs=(morning_1[0]-now[3])*3600+(morning_1[1]-now[4])*60
+                secs=(morning_1[0]-now[0])*3600+(morning_1[1]-now[1])*60
                 print('sleep till morning')
-                deepsleep(secs*1000)
             elif now<afternoon_1:
                 print('sleep till afternoon')
-                secs=(afternoon_1[0]-now[3])*3600+(afternoon_1[1]-now[4])*60
-                deepsleep(secs*1000)
+                secs=(afternoon_1[0]-now[0])*3600+(afternoon_1[1]-now[1])*60
             elif now<night_1:
                 print('sleep till night')
-                secs=(night_1[0]-now[3])*3600+(night_1[1]-now[4])*60
-                deepsleep(secs*1000)
+                secs=(night_1[0]-now[0])*3600+(night_1[1]-now[1])*60
             else:
                 print('sleep till morning overnight')
-                secs=(morning_1[0]-now[3]+24)*3600+(morning_1[1]-now[4])*60
-                deepsleep(secs*1000)
-                
+                secs=(morning_1[0]-now[0]+24)*3600+(morning_1[1]-now[1])*60
+
+            deepsleep(secs*1000)
+
         elif should_ring:
             lcd.putstr("Time for medicine")
             ring()
             ring()
             user_button.irq(trigger=Pin.IRQ_RISING, handler=pressed)
-            for _ in range(150):
+            for _ in range(300):
                 if release:
                     user_button.irq(handler=None)
-                    print('User pressed.Bre4akng loop')
+                    led.value(0)
                     break
-                sleep(2)
-                forgot=True
+                sleep(1)
         else:
             gc.collect()
             try:
-                if connect_to_wifi() and forgot:
+                if connect_to_wifi():
                     send_message(mobile,api_key,'Patient seems to have forgot to take medicine')
             except:
                 pass

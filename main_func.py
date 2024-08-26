@@ -13,6 +13,7 @@ import gc
 update_button=Pin(34, Pin.IN, Pin.PULL_DOWN)
 user_button=Pin(35, Pin.IN, Pin.PULL_DOWN)
 motor_button=Pin(15, Pin.IN, Pin.PULL_DOWN)
+led=Pin(2,Pin.OUT)
 
 #############################################################################
 lcd = GpioLcd(rs_pin=Pin(32),
@@ -36,7 +37,8 @@ m3c=Pin(17,Pin.OUT)
 m4o=Pin(16,Pin.OUT)
 m4c=Pin(4,Pin.OUT)
 
-##############################################################################
+
+######################################################
 
 def put_to_deepsleep(pin):
     deepsleep()
@@ -47,37 +49,37 @@ def put_to_deepsleep(pin):
 
 def open_containers():
     m1o.value(1)
-    sleep(1.7)
+    sleep(1.8)
     m1o.value(0)
     sleep(0.3)
     m2o.value(1)
-    sleep(1.7)
+    sleep(1.8)
     m2o.value(0)
     sleep(0.3)
     m3o.value(1)
-    sleep(1.7)
+    sleep(1.8)
     m3o.value(0)
     sleep(0.3)
     m4o.value(1)
-    sleep(1.7)
+    sleep(1.8)
     m4o.value(0)
     sleep(0.3)
    
 def close_containers():
     m1c.value(1)
-    sleep(1.6)
+    sleep(1.8)
     m1c.value(0)
     sleep(0.3)
     m2c.value(1)
-    sleep(1.6)
+    sleep(1.8)
     m2c.value(0)
     sleep(0.3)
     m3c.value(1)
-    sleep(1.6)
+    sleep(1.8)
     m3c.value(0)
     sleep(0.3)
     m4c.value(1)
-    sleep(1.6)
+    sleep(1.8)
     m4c.value(0)
     sleep(0.3)
 
@@ -131,8 +133,8 @@ def url_encode(string):
 
 def retrieve_data(email,password):
     lcd.clear()
-    lcd.putstr('Updating data')
-    print('Updating Data')
+    lcd.putstr('Downloading data')
+    print('Downloading Data')
     if firebase.FIREBASE_GLOBAL_VAR.ACCESS_TOKEN is None:
         auth=FirebaseAuth(firebase.FIREBASE_GLOBAL_VAR.API)
         auth.sign_in(email,password)
@@ -158,20 +160,20 @@ def send_message(phone_number, api_key, message):
   #set your host URL
     url = 'https://api.callmebot.com/whatsapp.php?phone='+phone_number+'&text='+encoded_msg+'&apikey='+api_key
 
-  #make the request
-    if connect_to_wifi():
-        response = urequests.get(url)
+#make the request
+    response = urequests.get(url)
     #check if it was successful
-        if response.status_code == 200:
-            print('Success!')
-        else:
-            print('Error')
-            print(response.text)
-        del response
-        del encoded_msg
-        gc.collect()
+    lcd.clear()
+    if response.status_code == 200:
+        lcd.putstr('Message sent.')
+        print('Success!')
     else:
-        lcd.putstr('Network Error')
+        print('Error')
+        print(response.text)
+        lcd.putstr('Failed to send message.')
+    del response
+    del encoded_msg
+    gc.collect()
 
 ####################################################################################
 
@@ -201,8 +203,7 @@ def connect_to_wifi():
                 for _ in range(10):
                     if wlan.isconnected():
                         lcd.clear()
-                        lcd.putstr('Connected to:'+ssid)
-                        print('Connected to:', ssid)
+                        lcd.putstr('Connected to '+ssid)
                         del available_ssids,wifi_credentials
                         gc.collect()
                         return True
@@ -523,7 +524,7 @@ class Configure:
                 sleep(5)
                 x=False
             lcd.clear()
-            lcd.putstr("Once Configuration  is Done, Reboot the device")
+            lcd.putstr("Once Configuration  is Done, Reboot the device or Press Update button to Update")
             try:
                 client.settimeout(7.0)
                 
